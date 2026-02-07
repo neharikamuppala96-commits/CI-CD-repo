@@ -2,6 +2,15 @@ name: Trigger Regression (Different Repo)
 
 on:
   workflow_dispatch:
+    inputs:
+      env:
+        description: "Environment to run regression against"
+        required: false
+        default: "qa"
+      ref:
+        description: "Branch/ref in regression repo to run the workflow from"
+        required: false
+        default: "main"
   push:
     branches: [ main ]
 
@@ -9,16 +18,35 @@ jobs:
   trigger_regression:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger regression workflow in another repo
+      - name: Trigger regression workflow in another repo (and fail if not accepted)
         env:
           GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-          OWNER: your-org-or-user
-          REPO: regression-repo
-          WORKFLOW_FILE: regression.yml
-          REF: main
+          OWNER: your-org-or-user              # <-- change
+          REPO: regression-repo                # <-- change
+          WORKFLOW_FILE: regression.yml        # <-- must match .github/workflows/<this file> in Repo B
+          ENV_NAME: ${{ github.event.inputs.env || 'qa' }}
+          REF_NAME: ${{ github.event.inputs.ref || 'main' }}
         run: |
-          curl -sS -L -X POST \
+          set -euo pipefail
+
+          echo "Dispatching ${OWNER}/${REPO} workflow=${WORKFLOW_FILE} ref=${REF_NAME} env=${ENV_NAME}"
+
+          HTTP_CODE=$(curl -sS -L \
+            -o response.json \
+            -w "%{http_code}" \
+            -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches \
-            -d '{"ref":"'"${REF}"'","inputs":{"env":"qa"}}'
+            -d '{"ref":"'"${REF_NAME}"'","inputs":{"env":"'"${ENV_NAME}"'"}}')
+
+          echo "HTTP_CODE=$HTTP_CODE"
+          cat response.json || true
+
+          # workflow_dispatch success response is 204 No Content
+          if [ "$HTTP_CODE" -ne 204 ]; then
+            echo "❌ Dispatch was NOT accepted"
+            exit 1
+          fi
+
+          echo "✅ Dispatch accepted (204)"
