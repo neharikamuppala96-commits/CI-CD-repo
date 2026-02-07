@@ -21,9 +21,9 @@ jobs:
       - name: Trigger regression workflow in another repo (and fail if not accepted)
         env:
           GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-          OWNER: your-org-or-user              # <-- change
-          REPO: regression-repo                # <-- change
-          WORKFLOW_FILE: regression.yml        # <-- must match .github/workflows/<this file> in Repo B
+          OWNER: neharikamuppala96-commits
+          REPO: Testing
+          WORKFLOW_FILE: regression.yml
           ENV_NAME: ${{ github.event.inputs.env || 'qa' }}
           REF_NAME: ${{ github.event.inputs.ref || 'main' }}
         run: |
